@@ -1,0 +1,4 @@
+const CACHE='educlass-v12-storage';
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(['./','./index.html','./educlass-magic.js','./educlass-magic.css','./manifest.webmanifest','./icon.svg','./logo-magico.webp','./rol-docente.webp','./rol-estudiante.webp','./icon-192.png','./icon-512.png']))));
+self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE&&k.startsWith('educlass-')).map(k=>caches.delete(k)))),self.clients.claim()])));
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin)return;event.respondWith(fetch(event.request).then(response=>{if(response.ok){let clone=response.clone();caches.open(CACHE).then(c=>c.put(event.request,clone))}return response}).catch(()=>caches.match(event.request)))});
