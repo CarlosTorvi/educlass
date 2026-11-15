@@ -1,0 +1,24 @@
+/* EduClass 16 · diseño de cabecera, bandeja y recompensas */
+.edu16-hero{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap}
+.edu16-guardian{display:flex;align-items:center;gap:18px;flex-wrap:wrap;max-width:410px}
+.edu16-guardian button{background:none;border:0;padding:0;cursor:pointer}
+.edu16-guardian img{height:124px;width:124px;object-fit:cover;border-radius:24px;border:3px solid #efd49c;box-shadow:0 4px 22px #0003}
+.edu16-guardian strong{font:700 19px Georgia,serif;color:#ffe6b1}
+.edu16-guardian small{font-size:11px;color:#f7dcc2}
+.edu16-xpbar{height:10px;width:160px;background:#ffffff40;border-radius:20px;overflow:hidden;margin:8px 0}
+.edu16-xpbar span{display:block;background:#f5c15f;height:100%;border-radius:20px}
+.edu16-hide-guardian{display:none!important}
+.edu16-rewards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
+.edu16-small-card{padding:15px;background:#fff9ee;border:1px solid #eadbc4;border-radius:13px;margin:8px 0}
+.edu16-small-card p{margin:6px 0 12px}
+.edu16-small-card .button{padding:8px 12px}
+.edu16-incident{background:#fffaf5;border:1px solid #e8d8c2;border-radius:15px;margin:8px 0;overflow:hidden}
+.edu16-ticket-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:14px 17px;border:0;background:transparent;cursor:pointer;color:#1c3145;flex-wrap:wrap}
+.edu16-ticket-head strong{font-size:14px}.edu16-ticket-head small{color:#866754}.edu16-ticket-head span{font-size:12px;color:#675f58;width:100%}
+.edu16-chat{padding:14px;border-top:1px solid #e8d8c2}.edu16-chat textarea{width:100%;padding:10px;border:1px solid #e8d8c2;border-radius:9px}
+.edu16-counter{margin-left:auto;background:#c43f55;color:white;font-size:11px;padding:2px 7px;border-radius:99px}
+.edu16-report-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:16px 0}
+.edu16-report-stats>div{padding:13px;background:#f7edd9;border-radius:12px;text-align:center}
+.edu16-report-stats strong{font-size:24px;display:block}.edu16-report-stats small{font-size:11px;display:block}
+.edu16-archive-btn{margin-top:10px}
+@media(max-width:700px){.edu16-guardian img{width:100px;height:100px}.edu16-report-stats{grid-template-columns:repeat(2,1fr)}}
