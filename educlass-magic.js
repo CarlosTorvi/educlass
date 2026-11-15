@@ -58,7 +58,7 @@ async function magicMediaRequest(action,props={},file){
  const body=file?new FormData():JSON.stringify({action,...props});
  if(file){body.append('action',action);for(let [k,v] of Object.entries(props))body.append(k,String(v));body.append('file',file);}
  else headers['Content-Type']='application/json';
- let res;try{res=await fetch(CONFIG.url.replace(/\/$/,'')+'/functions/v1/educlass-media',{method:'POST',headers,body});}catch(e){throw Error('No se pudo conectar con el almacenamiento: '+e.message);}
+ let res;try{res=await fetch(CONFIG.url.replace(/\/$/,'')+'/functions/v1/educlass-media',{method:'POST',headers,body});}catch(e){throw Error('No se pudo contactar con educlass-media. Comprueba que la función esté desplegada y que EDUCLASS_ALLOWED_ORIGINS incluya esta web (CORS). Detalle: '+e.message);}
  let payload=await res.json().catch(()=>({error:'Respuesta de almacenamiento no válida'}));
  if(!res.ok)throw Error(payload.error||'Fallo en Storage ('+res.status+')');return payload;
 }
@@ -111,7 +111,7 @@ async function magicSaveGame(){magicKeepEditor();let g=magicState.teacherEdit;le
 async function magicPublishGame(idValue){let g=db.magic_games.find(x=>x.id===idValue);if(!g)return;try{await mutate('magic_games',{...g,published:!g.published},'update');toast(!g.published?'Juego publicado.':'Juego ocultado.');go('magic-games');}catch(e){alert(e.message)}}
 function magicGameResults(idValue){let g=db.magic_games.find(x=>x.id===idValue);let rows=db.magic_attempts.filter(a=>a.game_id===idValue).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));openModal(`<h3>${magicSafe(g?.title||'Resultados')}</h3><p>${rows.length} partidas · ${new Set(rows.map(a=>a.student_id)).size} participantes</p><p class="magic-mini">Sin jugar: ${db.students.filter(s=>s.class_id===g.class_id&&!rows.some(a=>a.student_id===s.id)).map(s=>magicSafe(s.name)).join(', ')||'Nadie'}</p><div class="tablewrap"><table class="tbl"><thead><tr><th>Estudiante</th><th>Aciertos</th><th>Puntuación</th><th>Premio</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${magicSafe(nameOf(a.student_id))}</td><td>${a.correct_count}/${a.total_count}</td><td>${a.score}%</td><td>${a.rewarded?'Sí':'No'}</td></tr>`).join('')||'<tr><td colspan="4">Sin partidas todavía</td></tr>'}</tbody></table></div>`);}
 function magicTeacherMissions(){let ms=db.magic_missions.filter(m=>m.class_id===currentClassId);let sb=db.magic_submissions.filter(x=>ms.some(m=>m.id===x.mission_id));return magicTeacherTitle('Misiones y tareas','Actividades sencillas con entrega, aviso y corrección.')+`<div class="toolbar"><button class="button" onclick="magicEditMission()">+ Crear misión</button><span class="magic-chip">${ms.length} misiones · ${sb.filter(s=>s.status==='entregada').length} pendientes de corregir</span></div><p class="magic-mini" id="magic-storage-stats">${cloud?'Consultando espacio disponible…':'Demo local: archivos pequeños solamente'}</p><div class="magic-grid section">${ms.map(m=>{let ss=sb.filter(s=>s.mission_id===m.id);return `<div class="magic-tile"><h3>${magicSafe(m.title)}</h3><p>${magicSafe(m.instructions).slice(0,160)}</p><p>${ss.length} entregas · ${ss.filter(s=>s.status==='entregada').length} pendientes</p><p>+${m.points} puntos · +${m.xp} XP</p><div class="toolbar"><button class="button secondary" onclick="magicEditMission('${m.id}')">Editar</button><button class="button secondary" onclick="magicMissionResults('${m.id}')">Entregas</button><button class="button ghost" onclick="magicPublishMission('${m.id}')">${m.published?'Ocultar':'Publicar'}</button></div></div>`}).join('')||'<div class="card empty">Todavía no hay misiones.</div>'}</div>`;}
-function magicEditMission(mid){let m=db.magic_missions.find(x=>x.id===mid),hasSubmit=m&&db.magic_submissions.some(x=>x.mission_id===mid);if(m&&hasSubmit){alert('Esta misión ya tiene entregas. Para conservar el historial, crea una nueva misión si necesitas cambiar su contenido.');return;}magicState.missionEdit=m?.id||null;magicState.teacherFiles=structuredClone(m?.materials||[]);openModal(`<div class="magic-form"><label>Título<input id="msTitle" value="${magicSafe(m?.title||'')}" maxlength="120"></label><label>Instrucciones<textarea id="msInstructions" maxlength="10000">${magicSafe(m?.instructions||'')}</textarea></label><label>Módulo<select id="msClass">${magicTeacherOptions(m?.class_id||currentClassId)}</select></label><label>Fecha límite (opcional)<input id="msDue" type="datetime-local" value="${m?.due_at?magicSafe(m.due_at.slice(0,16)):''}"></label><div class="magic-two"><label>Puntos máximos<input id="msPoints" type="number" min="0" max="500" value="${m?.points??10}"></label><label>XP máximos<input id="msXp" type="number" min="0" max="500" value="${m?.xp??20}"></label></div><label>Material de apoyo para el alumnado (imágenes, vídeos, audio, PDF, documentos)<input type="file" accept="image/*,video/*,audio/*,.pdf,.txt" multiple onchange="magicAddTeacherMaterials(this)"></label><div id="magicTeacherMaterials" class="magic-upload-list"></div><p class="magic-mini">Con Supabase Storage: hasta 50 MB por vídeo, 20 MB por imagen, 30 MB por audio o documento y 200 MB por misión. Máximo 3 archivos. Los materiales quedan en un espacio privado. La demo local solo admite archivos pequeños.</p><p class="magic-mini">El alumnado puede enviar hasta 3 archivos. Los archivos se subirán a Storage antes de confirmar la entrega. Solo aparecerá Entregada cuando el servidor guarde la misión.</p><button class="button" onclick="magicSaveMission()">Guardar misión</button></div>`);magicDrawTeacherMaterials();}
+function magicEditMission(mid){let m=db.magic_missions.find(x=>x.id===mid),hasSubmit=m&&db.magic_submissions.some(x=>x.mission_id===mid);if(m&&hasSubmit){alert('Esta misión ya tiene entregas. Para conservar el historial, crea una nueva misión si necesitas cambiar su contenido.');return;}magicState.missionEdit=m?.id||null;magicState.teacherFiles=structuredClone(m?.materials||[]);openModal(`<div class="magic-form"><label>Título<input id="msTitle" value="${magicSafe(m?.title||'')}" maxlength="120"></label><label>Instrucciones<textarea id="msInstructions" maxlength="10000">${magicSafe(m?.instructions||'')}</textarea></label><label>Módulo<select id="msClass">${magicTeacherOptions(m?.class_id||currentClassId)}</select></label><label>Fecha límite (opcional)<input id="msDue" type="datetime-local" value="${m?.due_at?magicSafe(m.due_at.slice(0,16)):''}"></label><div class="magic-two"><label>Puntos máximos<input id="msPoints" type="number" min="0" max="500" value="${m?.points??10}"></label><label>XP máximos<input id="msXp" type="number" min="0" max="500" value="${m?.xp??20}"></label></div><label>Material de apoyo para el alumnado (imágenes, vídeos, audio, PDF, documentos)<input type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx" multiple onchange="magicAddTeacherMaterials(this)"></label><div id="magicTeacherMaterials" class="magic-upload-list"></div><p class="magic-mini">Con Supabase Storage: hasta 50 MB por vídeo, 20 MB por imagen, 30 MB por audio o documento y 200 MB por misión. Máximo 3 archivos. Los materiales quedan en un espacio privado. La demo local solo admite archivos pequeños.</p><p class="magic-mini">El alumnado puede enviar hasta 3 archivos. Los archivos se subirán a Storage antes de confirmar la entrega. Solo aparecerá Entregada cuando el servidor guarde la misión.</p><button class="button" onclick="magicSaveMission()">Guardar misión</button></div>`);magicDrawTeacherMaterials();}
 async function magicAddTeacherMaterials(input){
  magicState.teacherFiles ||= [];
  for(const f of Array.from(input.files||[])){
@@ -126,7 +126,7 @@ async function magicAddTeacherMaterials(input){
  }
  input.value='';magicDrawTeacherMaterials();
 }
-function magicMediaAllowed(t){return ['image/png','image/jpeg','image/webp','image/gif','audio/webm','audio/ogg','audio/mpeg','audio/mp4','audio/x-m4a','video/webm','video/mp4','video/quicktime','application/pdf','text/plain'].includes(t);}
+function magicMediaAllowed(t){return ['image/png','image/jpeg','image/webp','image/gif','audio/webm','audio/ogg','audio/mpeg','audio/mp4','audio/x-m4a','video/webm','video/mp4','video/quicktime','application/pdf','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(t);}
 
 function magicDrawTeacherMaterials(){
  let box=document.getElementById('magicTeacherMaterials');if(!box)return;
@@ -142,14 +142,34 @@ async function magicSaveMission(){
  const button=document.querySelector('#msTitle')?.closest('.magic-form')?.querySelector('.button:last-child');if(button){button.disabled=true;button.textContent='Guardando materiales…';}
  try{
   if(cloud){
-   await mutate('magic_missions',payload,old?'update':'insert');
-   for(const f of files.filter(x=>x.file)){const ref=await magicMediaUpload(f.file,mid);payload.materials.push(ref);}
-   if(files.some(x=>x.file))await mutate('magic_missions',payload,'update');
+   if(files.some(x=>x.file))await magicMediaRequest('stats'); // Validar función y origen antes de guardar la misión
+   // Guardar primero la misión y verificar que el servidor puede encontrarla.
+   // Esta comprobación evita intentar subir adjuntos con un ID no persistido.
+   let result=old?
+      await api.from('magic_missions').update(payload).eq('id',mid).eq('teacher_id',session.user.id).select('id').maybeSingle():
+      await api.from('magic_missions').insert(payload).select('id').maybeSingle();
+   if(result.error)throw Error('No se pudo guardar la misión: '+result.error.message);
+   if(result.data?.id!==mid)throw Error('La misión no quedó accesible en Supabase. Revisa la política de la tabla magic_missions.');
+   for(const f of files.filter(x=>x.file)){
+     const ref=await magicMediaUpload(f.file,mid);
+     payload.materials.push(ref);
+   }
+   if(files.some(x=>x.file)){
+      const saved=await api.from('magic_missions').update({materials:payload.materials}).eq('id',mid).eq('teacher_id',session.user.id).select('id').maybeSingle();
+      if(saved.error)throw Error('Archivo subido, pero no se pudo vincular a la misión: '+saved.error.message);
+      if(!saved.data)throw Error('Archivo subido, pero la misión no se pudo actualizar.');
+   }
+   await loadRemote();
    const kept=new Set(payload.materials.filter(x=>x.storage_path).map(x=>x.storage_path));
    for(const removed of oldFiles.filter(x=>x.storage_path&&!kept.has(x.storage_path))){try{await magicMediaDelete(removed,mid);}catch(e){console.warn('Archivo antiguo pendiente de limpieza',e);}}
   }else await mutate('magic_missions',payload,old?'update':'insert');
   closeModal();toast('Misión guardada y materiales confirmados.');go('magic-missions');
- }catch(e){alert('No se pudo completar el guardado: '+e.message+'. Si ya se creó una misión vacía, puedes editarla e intentar la subida de nuevo.');if(button){button.disabled=false;button.textContent='Guardar misión';}}
+ }catch(e){
+  // Mantener borrador sin publicar para permitir reintentar la subida.
+  if(cloud){try{await loadRemote();}catch(err){console.warn('No se pudo refrescar la lista de misiones:',err);}}
+  alert('No se pudo completar la misión: '+e.message+'. Si la misión aparece en la lista, estará sin publicar: ábrela desde Editar para volver a adjuntar el archivo.');
+  if(button){button.disabled=false;button.textContent='Guardar misión';}
+ }
 }
 
 async function magicPublishMission(mid){let m=db.magic_missions.find(x=>x.id===mid);try{await mutate('magic_missions',{...m,published:!m.published},'update');toast('Publicación actualizada.');go('magic-missions');}catch(e){alert(e.message)}}
