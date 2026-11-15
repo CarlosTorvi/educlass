@@ -80,9 +80,11 @@ body{background:#faf4eb;color:#172b40}
 .rewardWon{display:inline-block;font-weight:800;color:#69243b;background:#fff3dc;border:1px solid #e9c887;padding:7px 10px;border-radius:10px;max-width:280px;overflow-wrap:anywhere}
 
 /* EduClass 13 · tarjetas integradas / perfil docente */
-.edu-nfc-art{width:100%;position:relative;aspect-ratio:3/2;background-position:center;background-size:100% 100%;border-radius:15px;overflow:hidden;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.edu-nfc-art{width:100%;position:relative;aspect-ratio:3/2;background-position:center;background-size:100% 100%;border-radius:15px;overflow:hidden;container-type:inline-size;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 .edu-nfc-art.theme-lion{background-image:url('tarjeta-lion.png')}.edu-nfc-art.theme-snake{background-image:url('tarjeta-snake.png')}.edu-nfc-art.theme-eagle{background-image:url('tarjeta-eagle.png')}.edu-nfc-art.theme-badger{background-image:url('tarjeta-badger.png')}
-.edu-nfc-value{position:absolute;left:32%;font-family:Georgia,serif;color:#233044;font-weight:bold;font-size:clamp(10px,1.25vw,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58%;line-height:1.2;text-shadow:0 1px 1px #fff8}.edu-nfc-value.name{top:36.5%;width:58%}.edu-nfc-value.module{top:57%;max-width:32%}.edu-nfc-value.number{top:73%;max-width:32%}
+/* Valores alineados con los recuadros impresos en las ilustraciones 3:2. Los tamaños responden a la tarjeta, no a la ventana. */
+.edu-nfc-value{position:absolute;left:34%;font-family:Georgia,serif;color:#233044;font-weight:700;font-size:3.25cqw;line-height:1;transform:translateY(-50%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px #fff8;display:block}
+.edu-nfc-value.name{top:37.5%;width:55%}.edu-nfc-value.module{top:56.5%;width:30%}.edu-nfc-value.number{top:73.3%;width:30%}
 .edu-nfc-art.theme-snake .edu-nfc-value{color:#0d4232}.edu-nfc-art.theme-lion .edu-nfc-value{color:#72273c}.edu-nfc-art.theme-eagle .edu-nfc-value{color:#183e78}.edu-nfc-art.theme-badger .edu-nfc-value{color:#4c3418}
 .edu-profile-picture{width:84px;height:84px;object-fit:cover;border-radius:50%;border:3px solid #d9b879;background:#f6ecdc}.edu-logout{margin-top:auto!important;border-top:1px solid #55708a!important;color:#ffdec7!important;border-radius:0!important}.edu-profile-panel{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 @media print{.edu-print-card{break-inside:avoid;page-break-inside:avoid;width:85.6mm;max-width:85.6mm}.edu-nfc-value{font-size:9pt!important}.edu-card-actions,.edu-nfc-explainer{display:none!important}.edu-nfc-art{border-radius:3mm}}
