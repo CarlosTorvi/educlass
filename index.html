@@ -186,7 +186,18 @@ function leavePasswordRecovery(forgot){recoveryMode=false;authView=forgot?'forgo
 async function updateRecoveredPassword(e){e.preventDefault();let msg=$('#recoveryMsg'),pass=$('#newPassword').value,repeat=$('#repeatPassword').value;if(pass!==repeat){msg.textContent='Las dos contraseñas no coinciden.';return}if(pass.length<8){msg.textContent='La contraseña debe tener al menos 8 caracteres.';return}msg.textContent='Actualizando contraseña…';let {error}=await api.auth.updateUser({password:pass});if(error){msg.textContent='No se pudo cambiar la contraseña: '+error.message;return}await api.auth.signOut();session=null;recoveryMode=false;authView='login';welcome=false;history.replaceState(null,'',location.pathname+'#/docente');render();let loginMsg=$('#loginMsg');if(loginMsg)loginMsg.textContent='Contraseña actualizada. Inicia sesión con tu nueva contraseña.'}
 function enterDemoTeacher(){welcome=false;demoTeacher=true;location.hash='#/docente';render()}
 async function registerTeacher(e){e.preventDefault();if(!cloud)return;let nick=$('#nick').value.trim(),email=$('#email').value.trim(),password=$('#password').value;if(nick.length<2)return;let msg=$('#loginMsg');msg.textContent='Registrando…';let {data,error}=await api.auth.signUp({email,password,options:{data:{nick},emailRedirectTo:location.href.split('#')[0]+'#/docente'}});if(error){msg.textContent=error.message;return}if(data.session){session=data.session;try{await ensureTeacher();await loadRemote();render()}catch(ex){msg.textContent=ex.message}}else{msg.textContent='Cuenta creada. Revisa tu correo para confirmar la dirección y después inicia sesión.';authView='login'}}
-async function ensureTeacher(){let {error}=await api.rpc('register_teacher');if(error)throw Error(error.message)}
+async function ensureTeacher(){
+  // En instalaciones donde el docente ya fue registrado por el administrador,
+  // la función RPC de auto-registro no es imprescindible.
+  let {error}=await api.rpc('register_teacher');
+  if(!error)return;
+  if(error.code!=='PGRST202')throw Error(error.message);
+  // No crear docentes automáticamente ni sortear permisos: verificar el perfil
+  // existente mediante las políticas RLS de Supabase.
+  let {data:teacher, error:checkError}=await api.from('teachers').select('*').eq('id',session.user.id).maybeSingle();
+  if(checkError)throw Error('No se pudo verificar el perfil docente: '+checkError.message);
+  if(!teacher)throw Error('La cuenta está autenticada, pero no consta como docente autorizado. Revisa el registro de teachers en Supabase.');
+}
 async function login(e){e.preventDefault();let msg=$('#loginMsg');msg.textContent='Entrando…';let {data,error}=await api.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});if(error){msg.textContent=error.message;return}session=data.session;try{await ensureTeacher();await loadRemote();render()}catch(ex){await api.auth.signOut();session=null;msg.textContent='No se pudo iniciar sesión: '+ex.message}}
 async function logout(){await api.auth.signOut();session=null;render()}
 window.addEventListener('hashchange',()=>{stopReader();stopPortalReader();render()});
