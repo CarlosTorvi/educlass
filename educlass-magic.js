@@ -442,3 +442,124 @@ async function magicAwardManual(uid,sign){if(magicAwardBusy)return;
  }catch(e){alert('No se pudo registrar: '+e.message+'\nRevisa la migración SQL v9.');}
  finally{magicAwardBusy=false;}
 }
+
+
+/* EduClass v15 — menú reordenable y acceso de alumnado independiente */
+let eduNavEditing=false,eduNavLoadingAccount='',eduNavOrder=null,eduNavDrag=null;
+let eduNavAccount='';
+const eduNavDefault=['inicio','clases','asistencia','magic-missions','magic-guardians','magic-games','puntos','motivos','alumnos','premios','informes','tarjetas','incidencias','perfil','ajustes'];
+function eduNavKey(){return 'educlass_nav_'+(session?.user?.id||'demo');}
+function eduSidebarOrder(defaultOrder){
+ const account=session?.user?.id||'demo';if(eduNavAccount!==account){eduNavAccount=account;eduNavOrder=null;eduNavLoadingAccount='';}
+ if(!eduNavOrder){try{let v=JSON.parse(localStorage.getItem(eduNavKey())||'null');eduNavOrder=Array.isArray(v)?v:eduNavDefault;}catch{eduNavOrder=eduNavDefault;}}
+ const keys=new Set(defaultOrder);return [...eduNavOrder.filter(x=>keys.has(x)),...defaultOrder.filter(x=>!eduNavOrder.includes(x))];
+}
+function eduNavRoute(b){return b.getAttribute('onclick')?.match(/go\('([^']+)'\)/)?.[1]||'';}
+async function eduLoadNavPrefs(){
+ if(!cloud||!session?.user?.id)return;
+ const account=session.user.id;if(eduNavLoadingAccount===account)return;eduNavLoadingAccount=account;
+ try{const {data,error}=await api.from('educlass_nav_preferences').select('nav_order').eq('teacher_id',account).maybeSingle();
+  if(error)throw error;
+  if(data&&Array.isArray(data.nav_order)){eduNavOrder=data.nav_order;localStorage.setItem(eduNavKey(),JSON.stringify(eduNavOrder));eduApplySidebar();}
+ }catch(e){console.warn('Orden del menú: sincronización remota no disponible; se conserva en este navegador.',e.message);}
+}
+function eduApplySidebar(){
+ const holder=document.querySelector('.side .navItems');if(!holder)return;
+ const map=new Map(Array.from(holder.querySelectorAll(':scope > button')).map(b=>[eduNavRoute(b),b]));
+ for(const key of eduSidebarOrder(eduNavDefault)){const b=map.get(key);if(b)holder.appendChild(b);}
+ let toggle=document.querySelector('.side > .navCustomize');
+ if(!toggle){toggle=document.createElement('button');toggle.className='navCustomize';toggle.type='button';toggle.addEventListener('click',()=>{eduNavEditing=!eduNavEditing;eduApplySidebar();});holder.insertAdjacentElement('afterend',toggle);}
+ toggle.textContent=eduNavEditing?'✓ Terminar de ordenar':'☷ Organizar menú';
+ for(const b of holder.querySelectorAll(':scope > button')){
+  b.draggable=eduNavEditing;b.classList.toggle('edu-nav-edit',eduNavEditing);
+  b.querySelector('.nav-grip')?.remove();b.querySelector('.edu-nav-controls')?.remove();
+  if(eduNavEditing){b.insertAdjacentHTML('afterbegin','<span class="nav-grip" aria-hidden="true">⠿</span>');
+   const controls=document.createElement('span');controls.className='edu-nav-controls';
+   for(const [label,d] of [['↑',-1],['↓',1]]){let x=document.createElement('span');x.setAttribute('role','button');x.tabIndex=0;x.textContent=label;x.title=d===-1?'Subir apartado':'Bajar apartado';x.setAttribute('aria-label',x.title);x.onclick=e=>{e.stopPropagation();eduMoveNav(eduNavRoute(b),d);};x.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();eduMoveNav(eduNavRoute(b),d);}};controls.appendChild(x);} b.appendChild(controls);
+  }
+  b.ondragstart=e=>{if(!eduNavEditing){e.preventDefault();return;}eduNavDrag=eduNavRoute(b);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',eduNavDrag);b.classList.add('edu-nav-moving');};
+  b.ondragover=e=>{if(!eduNavEditing)return;e.preventDefault();b.classList.add('edu-nav-over');};
+  b.ondragleave=()=>b.classList.remove('edu-nav-over');
+  b.ondragend=()=>{eduNavDrag=null;holder.querySelectorAll('button').forEach(x=>x.classList.remove('edu-nav-moving','edu-nav-over'));};
+  b.ondrop=e=>{e.preventDefault();e.stopPropagation();const source=eduNavDrag,target=eduNavRoute(b);if(source&&source!==target){const order=Array.from(holder.querySelectorAll(':scope > button')).map(eduNavRoute);let from=order.indexOf(source),to=order.indexOf(target);order.splice(from,1);order.splice(to,0,source);eduSaveNavOrder(order);}eduNavDrag=null;};
+ }
+ if(cloud&&session?.user?.id)eduLoadNavPrefs();
+}
+function eduMoveNav(key,delta){const holder=document.querySelector('.side .navItems');if(!holder)return;const order=Array.from(holder.querySelectorAll(':scope > button')).map(eduNavRoute);let i=order.indexOf(key),j=i+delta;if(i<0||j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];eduSaveNavOrder(order);}
+async function eduSaveNavOrder(order){eduNavOrder=order.slice();localStorage.setItem(eduNavKey(),JSON.stringify(eduNavOrder));eduApplySidebar();if(cloud&&session?.user?.id){const {error}=await api.from('educlass_nav_preferences').upsert({teacher_id:session.user.id,nav_order:order},{onConflict:'teacher_id'});if(error)console.warn('Orden guardado solo en este navegador; aplica SQL v15 para sincronizar.',error.message);}}
+const eduOldTeacherNav=magicTeacherNav;
+magicTeacherNav=function(){eduOldTeacherNav();eduApplySidebar();};
+
+/* Acceso docente: los permisos se guardan en la ficha y son comprobados por el servidor. */
+const eduOldEditStudent=editStudent;
+editStudent=function(uid){
+ const s=db.students.find(x=>x.id===uid);if(!s)return;
+ eduOldEditStudent(uid);
+ const modal=document.querySelector('#modal .stack');if(!modal)return;
+ const legacy=Array.from(modal.querySelectorAll('button')).find(b=>b.textContent.includes('Transferir esta tarjeta'));legacy?.remove();
+ const access=document.createElement('div');access.className='edu-access-box';access.innerHTML=`<strong>🔐 Accesos del alumno</strong><p class="muted">Los permisos NFC y manual son independientes. Desactivar al alumno bloquea ambos.</p>
+ <label><input id="eduStudentActive" type="checkbox" ${s.student_active!==false?'checked':''}> Alumno activo</label>
+ <label><input id="eduNfcEnabled" type="checkbox" ${s.nfc_enabled!==false?'checked':''}> Permitir acceso NFC</label>
+ <label><input id="eduManualEnabled" type="checkbox" ${s.manual_enabled!==false?'checked':''}> Permitir número y contraseña</label>
+ <label style="display:grid">Nueva contraseña (dejar en blanco para conservarla)<input id="eduStudentPassword" type="password" autocomplete="new-password" minlength="8" maxlength="72" placeholder="Al menos 8 caracteres"></label>
+ <small>Para entrar manualmente, el estudiante utilizará el código de su clase y su número visible.</small>`;
+ modal.querySelector('button[onclick^="updateStudent"]')?.before(access);
+};
+const eduOldUpdateStudent=updateStudent;
+updateStudent=async function(uid){
+ const s=db.students.find(x=>x.id===uid),el=document.getElementById('eduStudentActive');if(!s||!el)return eduOldUpdateStudent(uid);
+ const name=document.getElementById('eName')?.value.trim(),number=document.getElementById('eNumber')?.value.trim(),class_id=document.getElementById('eClass')?.value;
+ const group_name=db.classes.find(c=>c.id===class_id)?.name||'',pass=document.getElementById('eduStudentPassword')?.value||'';
+ if(!name||!class_id)return alert('Completa el nombre y el módulo.');
+ if(number&&db.students.some(x=>x.id!==uid&&x.number===number))return alert('Número duplicado entre tus alumnos.');
+ if(pass&&new TextEncoder().encode(pass).length>72)return alert('La contraseña supera 72 bytes.');
+ const update={name,class_id,group_name,number:number||null,student_active:el.checked,nfc_enabled:document.getElementById('eduNfcEnabled').checked,manual_enabled:document.getElementById('eduManualEnabled').checked};
+ try{if(cloud){if(pass){const r=await api.rpc('set_student_password',{p_student_id:uid,p_password:pass});if(r.error)throw r.error;}
+ const {data,error}=await api.from('students').update(update).eq('id',uid).eq('teacher_id',session.user.id).select('id').maybeSingle();if(error||!data)throw Error(error?.message||'No se ha guardado el alumno.');await loadRemote();}
+ else{Object.assign(s,update);save();if(pass)alert('La demo local no almacena contraseñas: utiliza Supabase para iniciar sesión manualmente.');}
+ currentClassId=class_id;closeModal();toast('Ficha y permisos actualizados.');render();}catch(e){alert('No se pudieron guardar los cambios: '+e.message);}
+};
+
+/* Acceso sin correo: el servidor emite un token de sesión distinto al de la tarjeta. */
+const eduOldStudentEntry=renderStudentEntry;
+renderStudentEntry=function(){eduOldStudentEntry();const box=document.querySelector('.studentScan');if(!box)return;
+ box.insertAdjacentHTML('beforeend',`<form class="edu-login-manual" onsubmit="eduStudentLogin(event)"><h2>🔐 Entrar con número y contraseña</h2>
+ <label>Código de clase<input name="code" placeholder="MAG-..." autocomplete="off" required maxlength="40"></label>
+ <label>Número de alumno<input name="number" placeholder="0001" autocomplete="username" required maxlength="40"></label>
+ <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
+ <button class="button width" type="submit">Entrar en mi espacio</button><p role="alert" class="muted" id="eduLoginError"></p></form>`);
+};
+async function eduStudentLogin(e){e.preventDefault();const form=e.currentTarget,msg=document.getElementById('eduLoginError'),btn=form.querySelector('button[type="submit"]');if(!cloud){msg.textContent='El acceso manual requiere Supabase.';return;}
+ btn.disabled=true;msg.textContent='Comprobando acceso…';
+ try{const f=new FormData(form),{data,error}=await api.rpc('student_manual_login',{p_code:String(f.get('code')).trim().toUpperCase(),p_number:String(f.get('number')).trim(),p_password:String(f.get('password'))});
+ if(error||!data||typeof data!=='string')throw Error('Código, número o contraseña incorrectos, o acceso desactivado.');
+ form.reset();location.hash='#/ver/'+data;
+ }catch(err){msg.textContent='No se pudo entrar: '+err.message;}finally{btn.disabled=false;}
+}
+
+/* Solo dos acciones de tarjeta: rotación segura y borrado del chip si es compatible. */
+async function eduLinkNfc(uid){
+ const s=db.students.find(x=>x.id===uid);if(!s)return;
+ if(!confirm('Se invalidará cualquier enlace NFC anterior y se generará una credencial nueva para '+s.name+'. ¿Continuar?'))return;
+ try{
+ let token;
+ if(cloud){const {data,error}=await api.rpc('educlass_link_card',{p_student:uid});if(error)throw error;token=data;await loadRemote();}
+ else{s.card_token=id();s.card_active=true;s.nfc_enabled=true;token=s.card_token;save();}
+ const url=location.href.split('#')[0]+'#/ver/'+token;
+ if(!('NDEFReader' in window)){prompt('Enlace nuevo. Grábalo en la tarjeta con NFC Tools (Android):',url);toast('Nuevo enlace preparado. La grabación física está pendiente.');render();return;}
+ try{await (new NDEFReader()).write({records:[{recordType:'url',data:url}]});toast('Tarjeta grabada y vinculada.');}
+ catch(err){prompt('No se pudo escribir el chip ('+err.message+'). Graba este enlace con NFC Tools:',url);toast('Credencial activada en Supabase; falta grabar el chip.',true);}
+ render();
+ }catch(err){alert('No se pudo preparar la tarjeta: '+err.message);}
+}
+async function eduEraseNfc(uid){
+ const s=db.students.find(x=>x.id===uid);if(!s)return;
+ if(!confirm('¿Desvincular esta tarjeta de '+s.name+'? El enlace anterior dejará de funcionar. Sus puntos, Guardianes y tareas NO se borran.'))return;
+ try{if(cloud){const {error}=await api.rpc('educlass_unlink_card',{p_student:uid});if(error)throw error;await loadRemote();}
+ else{s.card_token=id();s.card_active=false;s.nfc_enabled=false;save();}
+ let message='Tarjeta desvinculada en EduClass. El enlace anterior ya no tiene permiso.';
+ if('NDEFReader' in window){try{await (new NDEFReader()).write({records:[{recordType:'text',data:''}]});message+=' Chip NFC limpiado.';}catch(err){message+=' No fue posible limpiar físicamente el chip: utiliza NFC Tools. ('+err.message+')';}}
+ else message+=' Para borrar físicamente el chip usa NFC Tools en un móvil NFC compatible.';
+ alert(message);render();
+ }catch(err){alert('No se pudo desvincular la tarjeta: '+err.message);}
+}
