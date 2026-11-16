@@ -45,6 +45,7 @@ magicRenderStudentExtras=function(){
  edu16OldRenderStudentExtras();
  if(!magicState.portal)return;
  const p=magicState.portal,g=magicGuardian(p.student_id,Number(p.xp||0));
+ const portal=document.querySelector('.portalWrap');if(portal&&!portal.querySelector('#edu16HomeTop')){const home=document.createElement('div');home.className='edu16-home-top';home.innerHTML=`<button id="edu16HomeTop" class="button secondary" onclick="location.hash='#/inicio'">← Inicio EduClass</button>`;portal.insertBefore(home,portal.querySelector('.portalHero')||portal.firstChild);}
  const hero=document.querySelector('.portalWrap .portalHero');
  if(hero){hero.classList.add('edu16-hero');let avatar=hero.querySelector('.edu16-guardian');if(!avatar){avatar=document.createElement('div');avatar.className='edu16-guardian';hero.appendChild(avatar);}avatar.innerHTML=`<button type="button" onclick="magicZoomGuardian('${edu16Esc(g.image)}','${edu16Esc(magicGuardianLabel(g))}')" aria-label="Ampliar mi guardián"><img src="${edu16Esc(g.image)}" alt="${edu16Esc(magicGuardianLabel(g))}"></button><div><strong>${edu16Esc(magicGuardianLabel(g))}</strong><div>${edu16Esc(g.stage)} · ${Number(p.xp||0)} XP</div><div class="edu16-xpbar"><span style="width:${g.next?Math.min(100,100*Number(p.xp||0)/g.next):100}%"></span></div><small>${g.next?'Siguiente evolución: '+g.next+' XP':'¡Nivel máximo!'}</small></div>`;}
  const inner=document.querySelector('#magicStudentExtras .magic-head');if(inner)inner.classList.add('edu16-hide-guardian');
@@ -57,6 +58,9 @@ function edu16StudentMissionArchiveUI(){
  if(!nav.querySelector('#edu16ArchivedTab'))nav.insertAdjacentHTML('beforeend',`<button id="edu16ArchivedTab" class="${magicState.portalTab==='archive'?'active':''}" onclick="magicState.portalTab='archive';magicRenderStudentExtras()">📦 Misiones archivadas</button>`);
  const target=document.getElementById('magicPortalTab');if(!target)return;
  const archived=new Set(edu16StudentData?.archived_missions||[]);
+ // El contador refleja solamente las misiones pendientes y visibles en la bandeja principal.
+ const missionButton=nav.querySelector('button[onclick*="portalTab=\'missions\'"]');
+ if(missionButton){const now=Date.now(),count=p.missions.filter(m=>!archived.has(m.id)&&m.published!==false&&!m.deleted_at&&(!m.publish_at||new Date(m.publish_at).getTime()<=now)&&(!m.due_at||new Date(m.due_at).getTime()>=now)&&!p.submissions.some(x=>x.mission_id===m.id)).length;missionButton.textContent=`📜 Misiones (${count} nuevas)`;}
  if(magicState.portalTab==='archive'){
   target.innerHTML=`<div class="magic-grid">${p.missions.filter(m=>archived.has(m.id)).map(m=>{const s=p.submissions.find(x=>x.mission_id===m.id);return `<div class="magic-tile"><h3>${edu16Esc(m.title)}</h3><p>${edu16Esc(m.instructions).slice(0,180)}</p>${magicStatusBadge(m,s)}<div class="toolbar"><button class="button secondary" onclick="edu16ArchiveMission('${m.id}',false)">↩ Volver a misiones</button></div></div>`}).join('')||'<p>No has archivado ninguna misión.</p>'}</div>`;
  } else if(magicState.portalTab==='missions'){
