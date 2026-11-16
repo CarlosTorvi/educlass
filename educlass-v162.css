@@ -1,0 +1,5 @@
+/* EduClass v16.2: presentación aislada */
+.edu162-home-bottom{display:flex;justify-content:center;align-items:center;margin:22px 0 28px}.edu162-home-bottom .button{max-width:100%}
+.edu162-student-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}.edu162-student-actions button{width:100%}
+.edu162-warning{padding:15px;border:1px solid #af4555;background:#fff0ef;color:#7f2034;border-radius:12px;line-height:1.6}
+.edu162-file-list{display:grid;gap:12px;margin-top:14px}.edu162-file{border:1px solid #e4d3bd;padding:14px;border-radius:14px;display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.edu162-file>div:first-child{min-width:160px;flex:1}.edu162-file small{display:block;color:#6a6470;margin:4px 0}.edu162-file .toolbar{display:flex;flex-wrap:wrap;gap:8px}.edu162-file .button{font-size:13px}.edu162-file button:disabled{opacity:.45;cursor:not-allowed}
