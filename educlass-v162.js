@@ -100,17 +100,20 @@ function edu162Rows(files){if(!files.length)return '<p>No hay archivos con ese c
  return '<div class="edu162-file-list">'+files.slice().sort((a,b)=>b.size-a.size).map(f=>{
  const path=encodeURIComponent(f.path);
  const owner=f.student_name?edu162Safe(f.student_name):'Docente';
- const badge=f.protected?'⚠️ Entrega corregida: conservación protegida':'Archivo descargable';
- return `<div class="edu162-file"><div><b>${edu162Safe(f.name)}</b><small>${edu162Size(f.size)} · ${edu162Safe(f.type)} · ${edu162Safe(f.created_at||'')}</small><small>📜 ${edu162Safe(f.mission_title||'Misión antigua')} · ${owner}</small><small>${badge}</small></div><div class="toolbar"><button class="button secondary" onclick="edu162Download('${path}')">⬇ Descargar</button><button class="button danger" ${f.protected?'disabled title="Entrega evaluada: conservación protegida"':''} onclick="edu162DeleteFile('${path}')">Eliminar</button></div></div>`;
+ const badge=f.protected?'⚠️ Entrega corregida: borrado definitivo disponible con confirmación reforzada':'Archivo descargable';
+ return `<div class="edu162-file"><div><b>${edu162Safe(f.name)}</b><small>${edu162Size(f.size)} · ${edu162Safe(f.type)} · ${edu162Safe(f.created_at||'')}</small><small>📜 ${edu162Safe(f.mission_title||'Misión antigua')} · ${owner}</small><small>${badge}</small></div><div class="toolbar"><button class="button secondary" onclick="edu162Download('${path}')">⬇ Descargar</button><button class="button danger"  onclick="edu162DeleteFile('${path}')">Eliminar</button></div></div>`;
  }).join('')+'</div>';
 }
 function edu162UpdateInventory(){const root=document.getElementById('edu162FileList');if(root)root.innerHTML=edu162Rows(edu162Files.filter(f=>(f.name+' '+f.mission_title+' '+f.student_name+' '+f.location).toLocaleLowerCase('es').includes(edu162Filter.toLocaleLowerCase('es'))));}
 async function edu162Download(encoded){const path=decodeURIComponent(encoded),f=edu162Files.find(x=>x.path===path);if(!f)return;
  try{const out=await magicMediaRequest('signed',{mission_id:f.mission_id,path,download:true,name:f.name});const link=document.createElement('a');link.href=out.url;link.rel='noopener';link.download=f.name;document.body.appendChild(link);link.click();link.remove();}catch(e){edu16Msg(e);}
 }
-async function edu162DeleteFile(encoded){const path=decodeURIComponent(encoded),f=edu162Files.find(x=>x.path===path);if(!f||f.protected)return;
- if(!confirm('¿Eliminar permanentemente «'+f.name+'» ('+edu162Size(f.size)+')? La acción no puede deshacerse.'))return;
- try{await magicMediaRequest('delete_inventory',{mission_id:f.mission_id,path});await edu162LoadFiles();toast('Archivo eliminado y referencias actualizadas.');}catch(e){edu16Msg(e);}
+async function edu162DeleteFile(encoded){const path=decodeURIComponent(encoded),f=edu162Files.find(x=>x.path===path);if(!f)return;
+ const warning=f.protected?'\n\nENTREGA CORREGIDA: se conservarán la calificación y la ficha de la entrega, pero el archivo desaparecerá de Storage y dejará de ser descargable. Comprueba antes las obligaciones de conservación.':'';
+ if(!confirm('¿Eliminar permanentemente «'+f.name+'» ('+edu162Size(f.size)+')? La acción no puede deshacerse.'+warning))return;
+ let confirmation='';
+ if(f.protected){confirmation=prompt('Para borrar una entrega CORREGIDA, escribe exactamente ELIMINAR. La calificación se conserva, pero el archivo se pierde.');if(confirmation!=='ELIMINAR')return;}
+ try{await magicMediaRequest('delete_inventory',{mission_id:f.mission_id,path,confirm_corrected:confirmation});await edu162LoadFiles();toast('Archivo eliminado y referencias actualizadas.');}catch(e){edu16Msg(e);}
 }
 
 // Menú y enrutado de la nueva pantalla docente.
